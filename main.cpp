@@ -5,7 +5,6 @@
 #include <cmath>
 #include <vector>
 #include <math.h>
-#include <cstdlib>
 
 #include <glew.h>
 #include <glfw3.h>
@@ -20,7 +19,7 @@
 #include "Camera.h"
 #include "Texture.h"
 #include "Sphere.h"
-#include "Model.h"
+#include"Model.h"
 #include "Skybox.h"
 
 //para iluminacion
@@ -48,7 +47,8 @@ int counterHour;
 int counterDay;
 bool firts_Light;
 
-// Variables y banderas para animacion
+// Variables para keyframes
+float reproduciranimacion, habilitaranimacion, guardoFrame, reinicioFrame, ciclo, ciclo2, contador = 0;
 
 // Offsets
 float moneda_offset;
@@ -74,20 +74,11 @@ float rot_canica;
 float t_curva;
 bool canica_init;
 bool canica_animacion;
-bool disparo;
+bool subida;
 bool salida;
-
-// Primer recorrido
 bool choca;
 bool curva;
 bool choca1;
-
-// Segundo recorrido
-bool rebote;
-bool flipper;
-bool caida;
-bool bajada;
-bool subida;
 
 // Wingmoulds
 bool wm1_inicio;
@@ -100,17 +91,6 @@ float wm1_arc_izq_x;
 float wm1_arc_izq_z;
 int wm1_cont1;
 int wm1_cont2;
-
-bool wm2_inicio;
-float wm2_izq;
-float wm2_der;
-float wm2_arc;
-float wm2_arc_der_x;
-float wm2_arc_der_z;
-float wm2_arc_izq_x;
-float wm2_arc_izq_z;
-int wm2_cont1;
-int wm2_cont2;
 
 // Sierra
 float rotSierra;
@@ -179,6 +159,7 @@ PointLight pointLights5[MAX_POINT_LIGHTS];
 PointLight pointLights6[MAX_POINT_LIGHTS];
 PointLight pointLights7[MAX_POINT_LIGHTS];
 
+
 // luces de tipo spotlight
 SpotLight spotLights[MAX_SPOT_LIGHTS];
 
@@ -188,6 +169,8 @@ static const char* vShader = "shaders/shader_light.vert";
 // Fragment Shader
 static const char* fShader = "shaders/shader_light.frag";
 
+//función para teclado de keyframes 
+void inputKeyframes(bool* keys);
 
 //funcion de calculo de normales por promedio de vertices 
 void calcAverageNormals(unsigned int* indices, unsigned int indiceCount, GLfloat* vertices, unsigned int verticeCount,
@@ -218,7 +201,6 @@ void calcAverageNormals(unsigned int* indices, unsigned int indiceCount, GLfloat
 	}
 }
 
-
 void CreateObjects()
 {
 	unsigned int indices[] = {
@@ -247,7 +229,6 @@ void CreateObjects()
 	calcAverageNormals(indices, 12, vertices, 32, 8, 5);
 }
 
-
 void CreateShaders()
 {
 	Shader* shader1 = new Shader();
@@ -255,6 +236,124 @@ void CreateShaders()
 	shaderList.push_back(*shader1);
 }
 
+///////////////////////////////KEYFRAMES/////////////////////
+
+bool animacionKF = false;
+
+//NEW// Keyframes
+float posX_KF = 15.0f, posY_KF = 3.0f, posZ_KF = -6.5f;
+float mov_x = 0.0f, mov_y = 0.0f, mov_z = 0.0f;
+float Rotate = 0;
+
+#define MAX_FRAMES 100
+int i_max_steps = 90;
+int i_curr_steps = 7;
+typedef struct _frame
+{
+	//Variables para GUARDAR Key Frames
+	float mov_x;		//Variable para PosicionX
+	float mov_y;		//Variable para PosicionY
+	float mov_z;		//Variable para PosicionZ
+	float mov_xInc;		//Variable para IncrementoX
+	float mov_yInc;		//Variable para IncrementoY
+	float mov_zInc;		//Variable para IncrementoZ
+	float Rotate;
+	float RotateInc;
+}FRAME;
+
+FRAME KeyFrame[MAX_FRAMES];
+int FrameIndex = 63;			//introducir datos
+bool play = false;
+int playIndex = 0;
+
+void saveFrame(void) //tecla L
+{
+
+	printf("frameindex %d\n", FrameIndex);
+
+
+	KeyFrame[FrameIndex].mov_x = mov_x;
+	KeyFrame[FrameIndex].mov_y = mov_y;
+	KeyFrame[FrameIndex].mov_z = mov_z;
+	KeyFrame[FrameIndex].Rotate = Rotate;//completar
+	//para que sea no volatil agregar una forma de escribir a un archivo para guardar los frames
+	FrameIndex++;
+}
+
+void resetElements(void) //Tecla 0
+{
+
+	mov_x = KeyFrame[0].mov_x;
+	mov_y = KeyFrame[0].mov_y;
+	mov_z = KeyFrame[0].mov_z;
+	Rotate = KeyFrame[0].Rotate;
+}
+
+void interpolation(void)
+{
+	KeyFrame[playIndex].mov_xInc = (KeyFrame[playIndex + 1].mov_x - KeyFrame[playIndex].mov_x) / i_max_steps;
+	KeyFrame[playIndex].mov_yInc = (KeyFrame[playIndex + 1].mov_y - KeyFrame[playIndex].mov_y) / i_max_steps;
+	KeyFrame[playIndex].mov_zInc = (KeyFrame[playIndex + 1].mov_z - KeyFrame[playIndex].mov_z) / i_max_steps;
+	KeyFrame[playIndex].RotateInc = (KeyFrame[playIndex + 1].Rotate - KeyFrame[playIndex].Rotate) / i_max_steps;
+
+}
+
+
+void animate(void)
+{
+	//Movimiento del objeto con barra espaciadora
+	if (play)
+	{
+		if (i_curr_steps >= i_max_steps) //fin de animaci�n entre frames?
+		{
+			playIndex++;
+			printf("playindex : %d\n", playIndex);
+			if (playIndex > FrameIndex - 2)	//Fin de toda la animaci�n con �ltimo frame?
+			{
+				printf("Frame index= %d\n", FrameIndex);
+				printf("termino la animacion\n");
+				playIndex = 0;
+				play = false;
+			}
+			else //Interpolaci�n del pr�ximo cuadro
+			{
+
+				i_curr_steps = 0; //Resetea contador
+				//Interpolar
+				interpolation();
+			}
+		}
+		else
+		{
+			//Dibujar Animaci�n
+			mov_x += KeyFrame[playIndex].mov_xInc;
+			mov_y += KeyFrame[playIndex].mov_yInc;
+			mov_z += KeyFrame[playIndex].mov_zInc;
+			Rotate += KeyFrame[playIndex].RotateInc;
+			i_curr_steps++;
+		}
+
+	}
+}
+
+//Funcion para guardar los keyframes
+void write() {
+	std::ofstream file;
+	file.open("KeyFrame.txt", std::ios::app);
+	if (file.fail())
+	{
+		printf("Error al abrir el archivo");
+	}
+	file << "KeyFrame[" << FrameIndex - 1 << "].mov_x = " << mov_x << ";" << std::endl;
+	file << "KeyFrame[" << FrameIndex - 1 << "].mov_y = " << mov_y << ";" << std::endl;
+	file << "KeyFrame[" << FrameIndex - 1 << "].mov_z = " << mov_z << ";" << std::endl;
+	file << "KeyFrame[" << FrameIndex - 1 << "].Rotate = " << Rotate << ";\n" << std::endl;
+	//file << "i_curr_steps =" << i_curr_steps << "\n" << std::endl;
+
+	file.close();
+}
+
+///////////////* FIN KEYFRAMES*////////////////////////////
 
 int main()
 {
@@ -433,6 +532,7 @@ int main()
 	pointLights7[2] = pointLights[1];
 	pointLights7[3] = pointLights[0];
 
+
 	//contador de luces spotlight
 	unsigned int spotLightCount = 0;
 
@@ -449,6 +549,19 @@ int main()
 		uniformSpecularIntensity = 0, uniformShininess = 0;
 	GLuint uniformColor = 0;
 	glm::mat4 projection = glm::perspective(45.0f, (GLfloat)mainWindow.getBufferWidth() / mainWindow.getBufferHeight(), 0.1f, 1000.0f);
+
+	glm::vec3 PosCanica = glm::vec3(0.0f, 0.0f, 0.0f);
+
+	//---------PARA TENER KEYFRAMES GUARDADOS NO VOLATILES QUE SIEMPRE SE UTILIZARAN SE DECLARAN AQU�
+
+	KeyFrame[0].mov_x = 0.0f;
+	KeyFrame[0].mov_y = 0.0f;
+	KeyFrame[0].mov_z = 0.0f;
+	KeyFrame[0].Rotate = 0;
+
+	printf("\nTeclas para uso de Keyframes:\n1.-Presionar barra espaciadora para reproducir animacion.\n2.-Presionar 0 para volver a habilitar reproduccion de la animacion\n");
+	printf("3.-Presiona L para guardar frame\n4.-Presiona P para habilitar guardar nuevo frame\n5.-Presiona 1 para mover en X\n6.-Presiona 2 para mover en -X\n");
+	printf("7.-Presiona 3 para mover en Y\n8.-Presiona 4 para mover en -Y\n9.-Presiona 5 para mover en Z\n10.-Presiona 6 para mover en -Z\n11.-Presiona 7 para habilitar mover en cualquier direccion");
 
 	//Inicializacion de variables para zoom
 	zoomY = 75.0;
@@ -480,20 +593,11 @@ int main()
 	t_curva = 0.0f;
 	canica_init = false;
 	canica_animacion = false;
-	disparo = true;
+	subida = true;
 	salida = false;
-
-	// Primer recorrido
 	choca = false;
 	curva = false;
 	choca1 = false;
-
-	// Segundo recorrido
-	rebote = false;
-	flipper = false;
-	caida = false;
-	bajada = false;
-	subida = false;
 
 	// Wingmoulds
 	wm1_inicio = false;
@@ -507,17 +611,6 @@ int main()
 	wm1_cont1 = 0;
 	wm1_cont2 = 0;
 
-	wm2_inicio = false;
-	wm2_izq = -0.5;
-	wm2_der = 0.5;
-	wm2_arc = 0.0;
-	wm2_arc_der_x = 0.0;
-	wm2_arc_der_z = 0.0;
-	wm2_arc_izq_x = 0.0;
-	wm2_arc_izq_z = 0.0;
-	wm2_cont1 = 0;
-	wm2_cont2 = 0;
-
 	// Sierra
 	rotSierra = 0.0;
 
@@ -527,18 +620,18 @@ int main()
 	counterDay = 0;
 	firts_Light = true;
 
-	//***************************************************************//
-	// inicie el motor de sonido con los parámetros predeterminados
-	//ISoundEngine* audio = createIrrKlangDevice()
+  //***************************************************************//
+  // inicie el motor de sonido con los parámetros predeterminados
+	ISoundEngine* audio = createIrrKlangDevice();
 
-	//if (!audio)
-	//	return 0; //Error en el audio
+	if (!audio)
+		return 0; //Error en el audio
 
-	////audio->play2D("breakout.mp3", true); //Reproducce el audio en ciclo
+	//audio->play2D("breakout.mp3", true); //Reproducce el audio en ciclo
 
 	//audio->play2D("PathofPain.mp3", true); //Reproducce el audio en ciclo
 
-	//ISoundEngine* SoundEngine = createIrrKlangDevice();
+	ISoundEngine* SoundEngine = createIrrKlangDevice();
 
 	//***************************************************************//
 
@@ -552,6 +645,10 @@ int main()
 
 		// Recibir eventos del usuario
 		glfwPollEvents();
+
+		//-------Para Keyframes-------//
+		inputKeyframes(mainWindow.getsKeys());
+		animate();
 
 		// Zoom para camara del jugador
 		if (mainWindow.getScroll())
@@ -767,10 +864,7 @@ int main()
 		// Reinicio forzado de la animacion
 		if (mainWindow.getReset())
 		{
-			// Offsets
-			moneda_offset = 0.03f;
 			canica_offset = 0.05f;
-			rot_offset = 2.0f;
 
 			// Moneda
 			mov_moneda = 33.0f;
@@ -781,7 +875,6 @@ int main()
 			resorte = false;
 			espera = false;
 			zResorte = 0.3;
-			zManija = 50.0;
 
 			// Canica 
 			movx_canica = 18.5f;
@@ -791,20 +884,11 @@ int main()
 			t_curva = 0.0f;
 			canica_init = false;
 			canica_animacion = false;
-			disparo = true;
+			subida = true;
 			salida = false;
-
-			// Primer recorrido
 			choca = false;
 			curva = false;
 			choca1 = false;
-
-			// Segundo recorrido
-			rebote = false;
-			flipper = false;
-			caida = false;
-			subida = false;
-
 			mainWindow.setReset(false);
 			mainWindow.setMoneda(false);
 		}
@@ -875,7 +959,7 @@ int main()
 			else if (canica_animacion)
 			{
 				// La canica sale disparada
-				if (disparo)
+				if (subida)
 				{
 					if (movz_canica >= -22.5)
 					{
@@ -885,7 +969,7 @@ int main()
 					}
 					else
 					{
-						disparo = false;
+						subida = false;
 						salida = true;
 					}
 				}
@@ -903,192 +987,59 @@ int main()
 					else
 					{
 						t_curva = -0.4f;
-						canica_offset = 0.2f;
 						salida = false;
 						choca = true;
 					}
 				}
-				// Recorridos
-				if (mainWindow.getRuta())
+				// Canica choca con obstaculo y rebota
+				else if (choca)
 				{
-					// Canica choca con obstaculo y rebota
-					if (choca)
+					// Activa animacion del objeto jerarquico
+					if (wm1_inicio) {}
+					else
 					{
-						// Activa animacion del objeto jerarquico
-						if (wm1_inicio) {}
-						else
-						{
-							wm1_inicio = true;
-						}
+						wm1_inicio = true;
+					}
 
-						// Cae rapidamente
-						if (movz_canica < -19.5)
-						{
-							movz_canica += canica_offset * deltaTime;
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							choca = false;
-							rebote = true;
-							t_curva = -0.47f;
-						}
-					}
-					// Canica vuelve a chocar con obstaculo y rebota
-					else if (rebote)
+					// Sigue una trayectoria de un circulo
+					if (t_curva <= 0.4)
 					{
-						// Activa animacion del objeto jerarquico
-						if (wm2_inicio) {}
-						else
-						{
-							wm2_inicio = true;
-						}
-
-						// Sigue una trayectoria de un circulo
-						if (t_curva >= -2.96)
-						{
-							t_curva -= 0.07 * deltaTime;
-							movx_canica = 14.83 + (glm::sqrt(3.47) * glm::cos(t_curva));
-							movz_canica = -18.67 + (glm::sqrt(3.47) * glm::sin(t_curva));
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						// Cae rapidamente
-						else if (movz_canica <= -13.7)
-						{
-							movz_canica += canica_offset * deltaTime;
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							canica_offset = 0.1;
-							rebote = false;
-							flipper = true;
-						}
+						t_curva += 0.008 * deltaTime;
+						movx_canica = -10.47 + (glm::sqrt(845.92) * glm::cos(t_curva));
+						movz_canica = -12.05 + (glm::sqrt(845.92) * glm::sin(t_curva));
+						movy_canica = -0.053 * movz_canica + 49.267;
 					}
-					// Canica 
-					else if (flipper)
+					else
 					{
-						if (mainWindow.getAction())
-						{
-							flipper = false;
-							subida = true;
-						}
-
-						if (movx_canica >= 11.2)
-						{
-							movx_canica -= canica_offset * deltaTime;
-							movz_canica = -0.92 * movx_canica - 1.74;
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							t_curva = 0.315;
-							canica_offset = 0.2;
-							flipper = false;
-							caida = true;
-						}
-					}
-					else if (subida)
-					{
-						movy_canica += canica_offset * deltaTime;
-					}
-					else if (caida)
-					{
-						if (t_curva <= 0.403)
-						{
-							t_curva += 0.004 * deltaTime;
-							movx_canica = -35.15 + (glm::sqrt(2376.33) * glm::cos(t_curva));
-							movz_canica = -27.1 + (glm::sqrt(2376.33) * glm::sin(t_curva));
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else if (movz_canica <= 4.8)
-						{
-							movz_canica += canica_offset * deltaTime;
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							t_curva = 3.7;
-							bajada = true;
-							caida = false;
-						}
-					}
-					else if (bajada)
-					{
-						if (t_curva <= 6.18)
-						{
-							t_curva += 0.08 * deltaTime;
-							movx_canica = 11.72 + (glm::sqrt(5.25) * glm::cos(t_curva));
-							movz_canica = 4.28 + (glm::sqrt(5.25) * glm::sin(t_curva));
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else if (movz_canica <= 13.5)
-						{
-							movz_canica += canica_offset * deltaTime;
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							t_curva = -0.46f;
-							canica_offset = 0.3f;
-							choca1 = true;
-							bajada = false;
-						}
+						t_curva = -2.85f;
+						choca = false;
+						curva = true;
 					}
 				}
-				else
+				// Canica continua su camino por el tablero
+				else if (curva)
 				{
-					// Canica choca con obstaculo y rebota
-					if (choca)
+					if (t_curva >= -3.1)
 					{
-						// Activa animacion del objeto jerarquico
-						if (wm1_inicio) {}
-						else
-						{
-							wm1_inicio = true;
-						}
-
-						// Sigue una trayectoria de un circulo
-						if (t_curva <= 0.4)
-						{
-							t_curva += 0.008 * deltaTime;
-							movx_canica = -10.47 + (glm::sqrt(845.92) * glm::cos(t_curva));
-							movz_canica = -12.05 + (glm::sqrt(845.92) * glm::sin(t_curva));
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							t_curva = -2.85f;
-							choca = false;
-							curva = true;
-						}
+						t_curva -= 0.004 * deltaTime;
+						movx_canica = 73.12 + (glm::sqrt(3503.15) * glm::cos(t_curva));
+						movz_canica = 15.88 + (glm::sqrt(3503.15) * glm::sin(t_curva));
+						movy_canica = -0.053 * movz_canica + 49.267;
 					}
-					// Canica continua su camino por el tablero
-					else if (curva)
+					else
 					{
-						if (t_curva >= -3.1)
-						{
-							t_curva -= 0.004 * deltaTime;
-							movx_canica = 73.12 + (glm::sqrt(3503.15) * glm::cos(t_curva));
-							movz_canica = 15.88 + (glm::sqrt(3503.15) * glm::sin(t_curva));
-							movy_canica = -0.053 * movz_canica + 49.267;
-						}
-						else
-						{
-							t_curva = -0.46f;
-							canica_offset = 0.3f;
-							curva = false;
-							choca1 = true;
-						}
+						t_curva = -0.46f;
+						canica_offset = 0.3f;
+						curva = false;
+						choca1 = true;
 					}
 				}
-
 				// Canica choca y cae entre los flippers
-				if (choca1)
+				else if (choca1)
 				{
 					if (t_curva >= -3.4)
 					{
-						t_curva -= 0.08 * deltaTime;
+						t_curva -= 0.06 * deltaTime;
 						movx_canica = 11.11 + (glm::sqrt(10.32) * glm::cos(t_curva));
 						movz_canica = 14.21 + (glm::sqrt(10.32) * glm::sin(t_curva));
 						movy_canica = -0.053 * movz_canica + 49.267;
@@ -1105,16 +1056,15 @@ int main()
 							choca1 = false;
 							canica_animacion = false;
 						}
+
 					}
 				}
 			}
 			// La animacion cominza de nuevo
 			else
 			{
-				// Offsets
-				moneda_offset = 0.03f;
+				animacion = true;
 				canica_offset = 0.05f;
-				rot_offset = 2.0f;
 
 				// Moneda
 				mov_moneda = 33.0f;
@@ -1125,7 +1075,6 @@ int main()
 				resorte = false;
 				espera = false;
 				zResorte = 0.3;
-				zManija = 50.0;
 
 				// Canica 
 				movx_canica = 18.5f;
@@ -1134,20 +1083,11 @@ int main()
 				rot_canica = 0.0f;
 				t_curva = 0.0f;
 				canica_init = false;
-				canica_animacion = false;
-				disparo = true;
+				subida = true;
 				salida = false;
-
-				// Primer recorrido
 				choca = false;
 				curva = false;
 				choca1 = false;
-
-				// Segundo recorrido
-				rebote = false;
-				flipper = false;
-				caida = false;
-				subida = false;
 			}
 		}
 
@@ -1197,7 +1137,6 @@ int main()
 			{
 				//La luz se apagara independientemente del estado
 				shaderList[0].SetPointLights(pointLights1, pointLightCount - 1);
-
 				if (wm1_arc_der_x <= 30.0)
 				{
 					wm1_arc_der_x += 10.0;
@@ -1222,78 +1161,6 @@ int main()
 			wm1_arc_izq_z = 0.0;
 			wm1_cont1 = 0;
 			wm1_cont2 = 0;
-		}
-
-		if (wm2_inicio) {
-			// Caparazon se separa
-			if (wm2_der < 1.2) {
-				wm2_der += 0.05;
-				wm2_izq -= 0.05;
-			}
-			// Caparazon rota
-			else if (wm2_arc_izq_z < 30)
-			{
-				wm2_arc_der_z += 5;
-				wm2_arc_izq_z += 5;
-			}
-			// Interior rota 
-			else if (wm2_arc < 40)
-			{
-				wm2_arc_izq_z += 1;
-				wm2_arc += 5;
-			}
-			// Caparazon derecho rota
-			else if (wm2_arc_der_z < 40)
-			{
-				wm2_arc_der_z += 5;
-			}
-			// Comienza a vibrar durante 2 segundos
-			else if ((int)now % 2 == 0)
-			{
-				wm2_cont1++;
-			}
-			else
-			{
-				wm2_cont1 = 0;
-			}
-
-			if (wm2_cont1 == 1)
-				wm2_cont2++;
-
-			if (wm2_cont2 == 1)
-			{
-				wm2_cont2 = 0;
-				wm2_inicio = false;
-			}
-			else
-			{
-				//La luz se apagara independientemente del estado
-				//shaderList[0].SetPointLights(pointLights1, pointLightCount - 1);
-
-				if (wm2_arc_der_x <= 30.0)
-				{
-					wm2_arc_der_x += 10.0;
-					wm2_arc_izq_x -= 10.0;
-				}
-				else if (wm2_arc_izq_x <= 0.0)
-				{
-					wm2_arc_der_x -= 10.0;
-					wm2_arc_izq_x += 10.0;
-				}
-			}
-		}
-		// Regresa a su estado inicial
-		else
-		{
-			wm2_izq = -0.5;
-			wm2_der = 0.5;
-			wm2_arc = 0.0;
-			wm2_arc_der_x = 0.0;
-			wm2_arc_der_z = 0.0;
-			wm2_arc_izq_x = 0.0;
-			wm2_arc_izq_z = 0.0;
-			wm2_cont1 = 0;
-			wm2_cont2 = 0;
 		}
 
 		/* Modelos */
@@ -1360,27 +1227,6 @@ int main()
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 		Canica_M.RenderModel();
 
-		//model = glm::mat4(1.0f);
-		//model = glm::translate(model, glm::vec3(11.2, 49.4, -12));
-		//model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
-		//model = glm::rotate(model, rot_canica * toRadians, glm::vec3(1.0f, 1.0f, 0.0f));
-		//glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		//Canica_M.RenderModel();
-
-		//model = glm::mat4(1.0f);
-		//model = glm::translate(model, glm::vec3(10.5, 49.4, -10));
-		//model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
-		//model = glm::rotate(model, rot_canica * toRadians, glm::vec3(1.0f, 1.0f, 0.0f));
-		//glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		//Canica_M.RenderModel();
-
-		//model = glm::mat4(1.0f);
-		//model = glm::translate(model, glm::vec3(9.7, 49.4, -8));
-		//model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
-		//model = glm::rotate(model, rot_canica * toRadians, glm::vec3(1.0f, 1.0f, 0.0f));
-		//glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		//Canica_M.RenderModel();
-
 		// Flipper 1
 		model = glm::mat4(1.0);
 		model = glm::translate(model, glm::vec3(3.5f, 48.0f, 21.0f));
@@ -1439,23 +1285,18 @@ int main()
 		model = glm::mat4(1.0f);
 		model = glm::translate(model, glm::vec3(16.2f, 50.7f, -18.5f));
 		modelaux = model;
-		model = glm::rotate(model, wm2_arc * toRadians, glm::vec3(0.0f, 0.0f, 1.0f));
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 		WingMould_C.RenderModel();
 
 		model = modelaux;
-		model = glm::translate(model, glm::vec3(wm2_izq, 0.3f, -0.2f));
-		model = glm::rotate(model, wm2_arc_der_x * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-		model = glm::rotate(model, wm2_arc_der_z * toRadians, glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::translate(model, glm::vec3(-0.5f, 0.3f, -0.2f));
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 		WingMould_L.RenderModel();
 
 		model = modelaux;
-		model = glm::translate(model, glm::vec3(wm2_der, 0.3f, -0.2f));
-		model = glm::rotate(model, wm2_arc_izq_x * toRadians, glm::vec3(0.0f, 1.0f, 1.0f));
-		model = glm::rotate(model, -wm2_arc_izq_z * toRadians, glm::vec3(0.0f, 0.0f, 1.0f));
+		model = glm::translate(model, glm::vec3(0.5f, 0.3f, -0.2f));
 		model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 		WingMould_R.RenderModel();
@@ -1503,34 +1344,6 @@ int main()
 		rotSierra += 36.0;
 
 		model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(-3.0f, 49.3f, 5.5f));
-		model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
-		model = glm::rotate(model, rotSierra * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		Sierra_M.RenderModel();
-
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(-2.5f, 49.2f, 3.5f));
-		model = glm::scale(model, glm::vec3(0.3f, 0.3f, 0.3f));
-		model = glm::rotate(model, rotSierra * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		Sierra_M.RenderModel();
-
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(6.5f, 50.2f, -21.0f));
-		model = glm::scale(model, glm::vec3(0.3f, 0.3f, 0.3f));
-		model = glm::rotate(model, rotSierra * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		Sierra_M.RenderModel();
-
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(6.5f, 49.9f, -14.0f));
-		model = glm::scale(model, glm::vec3(0.3f, 0.3f, 0.3f));
-		model = glm::rotate(model, rotSierra * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		Sierra_M.RenderModel();
-
-		model = glm::mat4(1.0f);
 		model = glm::translate(model, glm::vec3(7.0f, 49.8f, -9.0f));
 		model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
 		model = glm::rotate(model, rotSierra * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
@@ -1544,18 +1357,11 @@ int main()
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 		Sierra_M.RenderModel();
 
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(18.5f, 49.4f, 2.0f));
-		model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));
-		model = glm::rotate(model, rotSierra * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
-		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		Sierra_M.RenderModel();
-
 		/* Avatar */
 		// TODO: cambiar canica por avatar
 		//		 programar animacion de mov del avatar
 
-		/*posX = camera.getCameraPosition().x;
+	/*	posX = camera.getCameraPosition().x;
 		posY = camera.getCameraPosition().y;
 		posZ = camera.getCameraPosition().z;
 
@@ -1587,31 +1393,31 @@ int main()
 		modelaux = model;
 		//model = glm::scale(model, glm::vec3(0.17f, 1.0f, 0.25f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		WatcherKnightBody_M.RenderModel();
+		//WatcherKnightBody_M.RenderModel();
 
 		//Brazo derecho
 		model = modelaux;
 		model = glm::translate(model, glm::vec3(4.5f, 0.0f, 1.0f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		WatcherKnightLeftArm_M.RenderModel();
+		//WatcherKnightLeftArm_M.RenderModel();
 
 		//Brazo izquierdo
 		model = modelaux;
 		model = glm::translate(model, glm::vec3(-4.5f, 0.0f, 2.5f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		WatcherKnightRightArm_M.RenderModel();
+		//WatcherKnightRightArm_M.RenderModel();
 
 		//Pierna derecha
 		model = modelaux;
 		model = glm::translate(model, glm::vec3(4.5f, -4.3f, -1.0f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		WatcherKnightLeftLeg_M.RenderModel();
+		//WatcherKnightLeftLeg_M.RenderModel();
 
 		//Pierna Izquierda
 		model = modelaux;
 		model = glm::translate(model, glm::vec3(-4.5f, -4.3f, -1.0f));
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
-		WatcherKnightRightLeg_M.RenderModel();
+		//WatcherKnightRightLeg_M.RenderModel();
 
 		/* Gabinete */
 		model = glm::mat4(1.0);
@@ -1697,4 +1503,168 @@ int main()
 	}
 
 	return 0;
+}
+
+void inputKeyframes(bool* keys)
+{
+	if (keys[GLFW_KEY_SPACE])
+	{
+		if (reproduciranimacion < 1)
+		{
+			if (play == false && (FrameIndex > 1))
+			{
+				resetElements();
+				//First Interpolation				
+				interpolation();
+				play = true;
+				playIndex = 0;
+				i_curr_steps = 0;
+				reproduciranimacion++;
+				printf("\n presiona 0 para habilitar reproducir de nuevo la animaci�n'\n");
+				habilitaranimacion = 0;
+
+			}
+			else
+			{
+				play = false;
+
+			}
+		}
+	}
+	if (keys[GLFW_KEY_0])
+	{
+		if (habilitaranimacion < 1 && reproduciranimacion>0)
+		{
+			printf("Ya puedes reproducir de nuevo la animaci�n con la tecla de barra espaciadora'\n");
+			reproduciranimacion = 0;
+
+		}
+	}
+
+	if (keys[GLFW_KEY_L])
+	{
+		if (guardoFrame < 1)
+		{
+			saveFrame();
+			printf("mov_x es: %f\n", mov_x);
+			printf("mov_y es: %f\n", mov_y);
+			printf("mov_z es: %f\n", mov_z);
+			printf("presiona P para habilitar guardar otro frame'\n");
+			printf("KeyFrame[%i].mov_x = %f;\n", FrameIndex - 1, mov_x);
+			printf("KeyFrame[%i].mov_y = %f;\n", FrameIndex - 1, mov_y);
+			printf("KeyFrame[%i].mov_z = %f;\n", FrameIndex - 1, mov_z);
+			printf("KeyFrame[%i].Rotate = %f;\n", FrameIndex - 1, Rotate);
+			write();
+			guardoFrame++;
+			reinicioFrame = 0;
+		}
+	}
+	if (keys[GLFW_KEY_P])
+	{
+		if (reinicioFrame < 1 && guardoFrame>0)
+		{
+			guardoFrame = 0;
+			printf("Ya puedes guardar otro frame presionando la tecla L'\n");
+		}
+	}
+
+	//Movimiento en X
+	if (keys[GLFW_KEY_1])
+	{
+		if (ciclo < 1)
+		{
+			//printf("mov_x es: %f\n", mov_x);
+			mov_x += 0.1f;
+			printf("\n mov_x es: %f\n", mov_x);
+			ciclo++;
+			ciclo2 = 0;
+			printf("\n Presiona la tecla 7 para poder habilitar la variable\n");
+		}
+
+	}
+	//Movimiento en -X
+	if (keys[GLFW_KEY_2])
+	{
+		if (ciclo < 1)
+		{
+			//printf("mov_x es: %f\n", mov_x);
+			mov_x -= 0.1f;
+			printf("\n mov_x es: %f\n", mov_x);
+			ciclo++;
+			ciclo2 = 0;
+			printf("\n Presiona la tecla 7 para poder habilitar la variable\n");
+		}
+
+	}
+
+	//Movimiento en Y 
+	if (keys[GLFW_KEY_3])
+	{
+		if (ciclo < 1)
+		{
+			//printf("mov_y es: %f\n", mov_y);
+			mov_y += 0.1f;
+			printf("\n mov_y es: %f\n", mov_y);
+			ciclo++;
+			ciclo2 = 0;
+			printf("\n Presiona la tecla 7 para poder habilitar la variable\n");
+		}
+
+	}
+
+	//Movimiento en -Y 
+	if (keys[GLFW_KEY_4])
+	{
+		if (ciclo < 1)
+		{
+			//printf("mov_y es: %f\n", mov_y);
+			mov_y -= 0.1f;
+			printf("\n mov_y es: %f\n", mov_y);
+			ciclo++;
+			ciclo2 = 0;
+			printf("\n Presiona la tecla 7 para poder habilitar la variable\n");
+		}
+
+	}
+
+	//Movimiento en Z
+	if (keys[GLFW_KEY_5])
+	{
+		if (ciclo < 1)
+		{
+			//printf("mov_y es: %f\n", mov_x);
+			mov_z += 0.1f;
+			Rotate += 5.0f;
+			printf("\n mov_z es: %f\n", mov_z);
+			ciclo++;
+			ciclo2 = 0;
+			printf("\n Presiona la tecla 7 para poder habilitar la variable\n");
+		}
+
+	}
+
+	//Movimiento en -Z
+	if (keys[GLFW_KEY_6])
+	{
+		if (ciclo < 1)
+		{
+			//printf("mov_y es: %f\n", mov_x);
+			mov_z -= 0.1f;
+			Rotate += 5.0f;
+			printf("\n mov_z es: %f\n", mov_z);
+			ciclo++;
+			ciclo2 = 0;
+			printf("\n Presiona la tecla 7 para poder habilitar la variable\n");
+		}
+
+	}
+
+	if (keys[GLFW_KEY_7])
+	{
+		if (ciclo2 < 1 && ciclo>0)
+		{
+			ciclo = 0;
+			printf("\n Ya puedes modificar tu variable presionando la tecla 1 a 7\n");
+		}
+	}
 }
