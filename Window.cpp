@@ -121,13 +121,12 @@ void Window::ManejaTeclado(GLFWwindow* window, int key, int code, int action, in
 		theWindow->camaraTopDown = false;
 	}
 
-	// Camara Top Down
-	if (key == GLFW_KEY_P)
+	/*if (key == GLFW_KEY_P)
 	{
 		theWindow->camaraIsometrica = false;
 		theWindow->camaraAvatar = false;
 		theWindow->camaraTopDown = true;
-	}
+	}*/
 
 	/* Control de animaciones */
 
@@ -143,17 +142,6 @@ void Window::ManejaTeclado(GLFWwindow* window, int key, int code, int action, in
 		theWindow->reset = true;
 	}
 
-	// Elegir ruta
-	if (key == GLFW_KEY_4)
-	{
-		theWindow->ruta = true;
-	}
-
-	if (key == GLFW_KEY_5)
-	{
-		theWindow->ruta = false;
-	}
-
 	/* Flippers */
 	if (key == GLFW_KEY_Z and action == GLFW_PRESS)
 	{
@@ -167,12 +155,10 @@ void Window::ManejaTeclado(GLFWwindow* window, int key, int code, int action, in
 	if (key == GLFW_KEY_X and action == GLFW_PRESS)
 	{
 		theWindow->angulo_flipper2 = 60.0;
-		theWindow->flipper = true;
 	}
 	else if (key == GLFW_KEY_X and action == GLFW_RELEASE)
 	{
 		theWindow->angulo_flipper2 = 0.0;
-		theWindow->flipper = false;
 	}
 
 	//Encender y apagar lampara principal
@@ -208,13 +194,13 @@ void Window::ManejaTeclado(GLFWwindow* window, int key, int code, int action, in
 		theWindow-> Object2 = true;
 		theWindow-> Object3 = false;
 	}
-	//Para manipular al tercer objeto
-	if (key == GLFW_KEY_0)
-	{
-		theWindow-> Object1 = false;
-		theWindow-> Object2 = false;
-		theWindow-> Object3 = true;
-	}
+	////Para manipular al tercer objeto
+	//if (key == GLFW_KEY_0)
+	//{
+	//	theWindow-> Object1 = false;
+	//	theWindow-> Object2 = false;
+	//	theWindow-> Object3 = true;
+	//}
 	if (theWindow -> getObject1()) {
 		if (key == GLFW_KEY_G)
 		{
@@ -245,6 +231,16 @@ void Window::ManejaTeclado(GLFWwindow* window, int key, int code, int action, in
 			theWindow->hierarchicalObject3 = false;
 		}
 	}
+	//Cambiar el tipo de animacion
+	if (key == GLFW_KEY_Q)
+	{
+		theWindow->animationType = true;
+	}
+	else if (key == GLFW_KEY_E)
+	{
+		theWindow->animationType = false;
+	}
+
 
 	if (key >= 0 && key < 1024)
 	{
